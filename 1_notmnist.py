@@ -134,3 +134,21 @@ print("Displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
     
 plt.imshow(train_dataset[i])
 plt.show()
+
+"""
+Next, we'll randomize the data. It's important to have the labels well shuffled for the training and test distributions to match.
+"""
+
+np.random.seed(133)
+def randomize(dataset, labels):
+  permutation = np.random.permutation(labels.shape[0])
+  shuffled_dataset = dataset[permutation,:,:]
+  shuffled_labels = labels[permutation]
+  return shuffled_dataset, shuffled_labels
+train_dataset, train_labels = randomize(train_dataset, train_labels)
+test_dataset, test_labels = randomize(test_dataset, test_labels)
+
+"""
+Problem 3
+Convince yourself that the data is still good after shuffling!
+"""
