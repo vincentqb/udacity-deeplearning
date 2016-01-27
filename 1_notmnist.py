@@ -4,12 +4,16 @@ This notebook uses the notMNIST dataset to be used with python experiments. This
 
 # These are all the modules we'll be using later. Make sure you can import them
 # before proceeding further.
+
 import matplotlib.pyplot as plt
 import numpy as np
+import random
+
 import os
 import sys
 import tarfile
 # from IPython.display import display, Image
+
 from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
 from six.moves.urllib.request import urlretrieve
@@ -66,9 +70,7 @@ Problem 1
 Let's take a peek at some of the data to make sure it looks sensible. Each exemplar should be an image of a character A through J rendered in a different font. Display a sample of the images that we just downloaded. Hint: you can use the package IPython.display.
 """
 
-import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-import os, random
 
 letter = random.choice('ABCDEFJ')
 folder_name = 'notMNIST_small/' + letter + '/'
@@ -127,14 +129,8 @@ Problem 2
 Let's verify that the data still looks good. Displaying a sample of the labels and images from the ndarray. Hint: you can use matplotlib.pyplot.
 """
 
-from random import randint
-
-i = randint(0,len(train_dataset)-1)
+i = random.randint(0,len(train_dataset)-1)
 print("Displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
     
-import matplotlib.pyplot as plt
-# import matplotlib.cm as cm
-    
-# plt.imshow(train_dataset[i], cmap=cm.binary)
 plt.imshow(train_dataset[i])
 plt.show()
