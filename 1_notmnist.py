@@ -126,3 +126,15 @@ test_dataset, test_labels = load(test_folders, 18000, 20000)
 Problem 2
 Let's verify that the data still looks good. Displaying a sample of the labels and images from the ndarray. Hint: you can use matplotlib.pyplot.
 """
+
+from random import randint
+
+i = randint(0,len(train_dataset)-1)
+print("Displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
+    
+import matplotlib.pyplot as plt
+# import matplotlib.cm as cm
+    
+# plt.imshow(train_dataset[i], cmap=cm.binary)
+plt.imshow(train_dataset[i])
+plt.show()
