@@ -158,10 +158,22 @@ Problem 2
 Let's verify that the data still looks good. Displaying a sample of the labels and images from the ndarray. Hint: you can use matplotlib.pyplot.
 """
 
+"""
 i = random.randint(0,len(train_dataset)-1)
 print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
 plt.imshow(train_dataset[i])
 plt.show()
+
+import matplotlib.image as mpimg
+
+letter = random.choice('ABCDEFJ')
+folder_name = 'notMNIST_small/' + letter + '/'
+file_name = folder_name + random.choice(os.listdir(folder_name))
+
+img = mpimg.imread(file_name)
+plt.imshow(img)
+plt.show()
+"""
 
 """
 Problem 3
