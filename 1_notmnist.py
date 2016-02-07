@@ -76,6 +76,7 @@ import matplotlib.image as mpimg
 letter = random.choice('ABCDEFJ')
 folder_name = 'notMNIST_small/' + letter + '/'
 file_name = folder_name + random.choice(os.listdir(folder_name))
+
 img = mpimg.imread(file_name)
 plt.imshow(img)
 plt.show()
@@ -85,6 +86,9 @@ Now let's load the data in a more manageable format.
 We'll convert the entire dataset into a 3D array (image index, x, y) of floating point values, normalized to have approximately zero mean and standard deviation ~0.5 to make training easier down the road. The labels will be stored into a separate array of integers 0 through 9.
 A few images might not be readable, we'll just skip them.
 """
+
+image_size = 28  # Pixel width and height.
+pixel_depth = 255.0  # Number of levels per pixel.
 
 def load(data_folders, min_num_images, max_num_images):
   dataset = np.ndarray(
@@ -132,7 +136,7 @@ Let's verify that the data still looks good. Displaying a sample of the labels a
 """
 
 i = random.randint(0,len(train_dataset)-1)
-print("Displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
+print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
 plt.imshow(train_dataset[i])
 plt.show()
 
@@ -155,21 +159,29 @@ Problem 3
 Convince yourself that the data is still good after shuffling!
 """
 
+# We take a second look at the data, and repeat Problem 2.
+i = random.randint(0,len(train_dataset)-1)
+print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
+plt.imshow(train_dataset[i])
+plt.show()
+
 """
 Problem 4
 
 Another check: we expect the data to be balanced across classes. Verify that.
 """
 
-values, counts = np.unique(a, return_counts=True)
-for (v, c) in zip(values, counts)
-    print('There are {} labelled {}.'.format(c, v))
+print("Number of items in each class.")
+print(np.unique(train_labels))
+# values, counts = np.unique(train_labels, return_counts=True)
+# for (v, c) in zip(values, counts):
+    # print('There are {} labelled {}.'.format(c, v))
 
 """
 Prune the training data as needed. Depending on your computer setup, you might not be able to fit it all in memory, and you can tune train_size as needed.
 """
 
-num_keep = .5 * len(train_dataset)
+num_keep = int(floor(.5 * len(train_dataset)))
 train_dataset = train_dataset[:num_keep]
 train_labels = train_labels[:num_keep]
 test_dataset = test_dataset[:num_keep]
@@ -223,3 +235,39 @@ Optional questions:
 -- What about near duplicates between datasets? (images that are almost identical)
 -- Create a sanitized validation and test set, and compare your accuracy on those in subsequent assignments.
 """
+
+"""
+
+Problem 6
+
+Let's get an idea of what an off-the-shelf classifier can give you on this data. It's always good to check that there is something to learn, and that it's a problem that is not so trivial that a canned solution solves it.
+
+Train a simple model on this data using 50, 100, 1000 and 5000 training samples. Hint: you can use the LogisticRegression model from sklearn.linear_model.
+
+Optional question: train an off-the-shelf model on all the data!
+"""
+
+from sklearn.linear_model import LogisticRegression as LR
+lr = LR()
+
+for num in (50, 100, 1000, 5000):
+
+    train_indices = random.sample(xrange(len(train_dataset)), num)
+    
+    # Fit
+    start = clock()
+    rf.fit(train_dataset[train_indices], train_labels[train_indices])
+    print("Fitted in {:.0f} seconds.".format(clock() - start))
+    
+    # Extrapolate
+    start = clock()
+    # predict_proba = rf.predict_proba(test_dataset)
+    predict_bin = rf.predict(test_dataset)
+    print("Extrapolated in {:.0f} seconds.".format(clock() - start))
+        
+    # Compute ROC AUC and accuracy
+    # acc = accuracy(test_labels, predict_proba)
+    # auc = AUC(test_labels, predict_proba[:,1])
+    acc = accuracy(test_labels, predict_bin)
+    auc = AUC(test_labels, predict_bin[:,1])
+    print "AUC: {:.2%}. Accuracy: {:.2%}.".format(auc, acc)
