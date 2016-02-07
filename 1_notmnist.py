@@ -153,41 +153,6 @@ train_datasets = maybe_pickle(train_folders, 45000)
 test_datasets = maybe_pickle(test_folders, 1800)
 
 """
-Problem 2
-
-Let's verify that the data still looks good. Displaying a sample of the labels and images from the ndarray. Hint: you can use matplotlib.pyplot.
-"""
-
-"""
-i = random.randint(0,len(train_dataset)-1)
-print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
-plt.imshow(train_dataset[i])
-plt.show()
-
-import matplotlib.image as mpimg
-
-letter = random.choice('ABCDEFJ')
-folder_name = 'notMNIST_small/' + letter + '/'
-file_name = folder_name + random.choice(os.listdir(folder_name))
-
-img = mpimg.imread(file_name)
-plt.imshow(img)
-plt.show()
-"""
-
-"""
-Problem 3
-
-Another check: we expect the data to be balanced across classes. Verify that.
-"""
-
-print("Number of items in each class.")
-print(np.unique(train_labels))
-# values, counts = np.unique(train_labels, return_counts=True)
-# for (v, c) in zip(values, counts):
-    # print('There are {} labelled {}.'.format(c, v))
-
-"""
 Merge and prune the training data as needed. Depending on your computer setup, you might not be able to fit it all in memory, and you can tune train_size as needed. The labels will be stored into a separate array of integers 0 through 9.
 
 Also create a validation dataset for hyperparameter tuning.
@@ -247,6 +212,29 @@ _, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
 print('Training:', train_dataset.shape, train_labels.shape)
 print('Validation:', valid_dataset.shape, valid_labels.shape)
 print('Testing:', test_dataset.shape, test_labels.shape)
+
+"""
+Problem 2
+
+Let's verify that the data still looks good. Displaying a sample of the labels and images from the ndarray. Hint: you can use matplotlib.pyplot.
+"""
+
+i = random.randint(0,len(train_dataset)-1)
+print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
+plt.imshow(train_dataset[i])
+plt.show()
+
+"""
+Problem 3
+
+Another check: we expect the data to be balanced across classes. Verify that.
+"""
+
+print("Number of items in each class.")
+print(np.unique(train_labels))
+# values, counts = np.unique(train_labels, return_counts=True)
+# for (v, c) in zip(values, counts):
+    # print('There are {} labelled {}.'.format(c, v))
 
 """
 Next, we'll randomize the data. It's important to have the labels well shuffled for the training and test distributions to match.
