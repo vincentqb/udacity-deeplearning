@@ -9,7 +9,6 @@ from __future__ import print_function
 
 import matplotlib.pyplot as plt
 import numpy as np
-import random
 
 import os
 import sys
@@ -20,6 +19,9 @@ from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
 from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
+
+from time import clock
+import random
 
 """
 First, we'll download the dataset to our local machine. The data consists of characters rendered in a variety of fonts on a 28x28 image. The labels are limited to 'A' through 'J' (10 classes). The training set has about 500k and the testset 19000 labelled examples. Given these sizes, it should be possible to train models quickly on any machine.
@@ -220,7 +222,7 @@ Let's verify that the data still looks good. Displaying a sample of the labels a
 """
 
 i = random.randint(0,len(train_dataset)-1)
-print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
+print("Displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
 plt.imshow(train_dataset[i])
 plt.show()
 
@@ -231,7 +233,7 @@ Another check: we expect the data to be balanced across classes. Verify that.
 """
 
 print("Number of items in each class.")
-print(np.unique(train_labels))
+print(np.bincount(train_labels))
 # values, counts = np.unique(train_labels, return_counts=True)
 # for (v, c) in zip(values, counts):
     # print('There are {} labelled {}.'.format(c, v))
@@ -240,14 +242,15 @@ print(np.unique(train_labels))
 Next, we'll randomize the data. It's important to have the labels well shuffled for the training and test distributions to match.
 """
 
-np.random.seed(133)
 def randomize(dataset, labels):
   permutation = np.random.permutation(labels.shape[0])
   shuffled_dataset = dataset[permutation,:,:]
   shuffled_labels = labels[permutation]
   return shuffled_dataset, shuffled_labels
+
 train_dataset, train_labels = randomize(train_dataset, train_labels)
 test_dataset, test_labels = randomize(test_dataset, test_labels)
+valid_dataset, valid_labels = randomize(valid_dataset, valid_labels)
 
 """
 Problem 4
@@ -257,7 +260,7 @@ Convince yourself that the data is still good after shuffling!
 
 # We take a second look at the data, and repeat Problem 2.
 i = random.randint(0,len(train_dataset)-1)
-print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
+print("Displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
 plt.imshow(train_dataset[i])
 plt.show()
 
@@ -309,9 +312,11 @@ Optional question: train an off-the-shelf model on all the data!
 
 lr = LogisticRegression()
 
+train_dataset = train_dataset.reshape(-1,28*28)
+
 for num in (50, 100, 1000, 5000, len(train_dataset)):
 
-    train_indices = random.sample(xrange(len(train_dataset)), num)
+    train_indices = random.sample(range(len(train_dataset)), num)
     
     # Fit
     start = clock()
