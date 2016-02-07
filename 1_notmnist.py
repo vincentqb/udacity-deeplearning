@@ -5,6 +5,8 @@ This notebook uses the notMNIST dataset to be used with python experiments. This
 # These are all the modules we'll be using later. Make sure you can import them
 # before proceeding further.
 
+from __future__ import print_function
+
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -25,13 +27,13 @@ First, we'll download the dataset to our local machine. The data consists of cha
 
 url = 'http://yaroslavvb.com/upload/notMNIST/'
 
-def maybe_download(filename, expected_bytes):
+def maybe_download(filename, expected_bytes, force=False):
   """Download a file if not present, and make sure it's the right size."""
-  if not os.path.exists(filename):
+  if force or not os.path.exists(filename):
     filename, _ = urlretrieve(url + filename, filename)
   statinfo = os.stat(filename)
   if statinfo.st_size == expected_bytes:
-    print 'Found and verified', filename
+    print('Found and verified', filename)
   else:
     raise Exception(
       'Failed to verify' + filename + '. Can you get to it with a browser?')
@@ -45,16 +47,22 @@ Extract the dataset from the compressed .tar.gz file. This should give you a set
 """
 
 num_classes = 10
+np.random.seed(133)
 
-def extract(filename):
-  tar = tarfile.open(filename)
+def maybe_extract(filename, force=False):
   root = os.path.splitext(os.path.splitext(filename)[0])[0]  # remove .tar.gz
-  print('Extracting data for %s. This may take a while. Please wait.' % root)
-  sys.stdout.flush()
-  tar.extractall()
-  tar.close()
+  if os.path.isdir(root) and not force:
+    # You may override by setting force=True.
+    print('%s already present - Skipping extraction of %s.' % (root, filename))
+  else:
+    print('Extracting data for %s. This may take a while. Please wait.' % root)
+    tar = tarfile.open(filename)
+    sys.stdout.flush()
+    tar.extractall()
+    tar.close()
   data_folders = [
-    os.path.join(root, d) for d in sorted(os.listdir(root)) if d != '.DS_Store']
+    os.path.join(root, d) for d in sorted(os.listdir(root))
+    if os.path.isdir(os.path.join(root, d))]
   if len(data_folders) != num_classes:
     raise Exception(
       'Expected %d folders, one per class. Found %d instead.' % (
@@ -62,8 +70,8 @@ def extract(filename):
   print(data_folders)
   return data_folders
   
-train_folders = extract(train_filename)
-test_folders = extract(test_filename)
+train_folders = maybe_extract(train_filename)
+test_folders = maybe_extract(test_filename)
 
 """
 Problem 1
@@ -82,52 +90,67 @@ plt.imshow(img)
 plt.show()
 
 """
-Now let's load the data in a more manageable format.
-We'll convert the entire dataset into a 3D array (image index, x, y) of floating point values, normalized to have approximately zero mean and standard deviation ~0.5 to make training easier down the road. The labels will be stored into a separate array of integers 0 through 9.
+Now let's load the data in a more manageable format. Since, depending on your computer setup you might not be able to fit it all in memory, we'll load each class into a separate dataset, store them on disk and curate them independently. Later we'll merge them into a single dataset of manageable size.
+
+We'll convert the entire dataset into a 3D array (image index, x, y) of floating point values, normalized to have approximately zero mean and standard deviation ~0.5 to make training easier down the road.
+
 A few images might not be readable, we'll just skip them.
 """
 
 image_size = 28  # Pixel width and height.
 pixel_depth = 255.0  # Number of levels per pixel.
 
-def load(data_folders, min_num_images, max_num_images):
-  dataset = np.ndarray(
-    shape=(max_num_images, image_size, image_size), dtype=np.float32)
-  labels = np.ndarray(shape=(max_num_images), dtype=np.int32)
-  label_index = 0
+def load_letter(folder, min_num_images):
+  """Load the data for a single letter label."""
+  image_files = os.listdir(folder)
+  dataset = np.ndarray(shape=(len(image_files), image_size, image_size),
+                         dtype=np.float32)
   image_index = 0
-  for folder in data_folders:
-    print(folder)
-    for image in os.listdir(folder):
-      if image_index >= max_num_images:
-        raise Exception('More images than expected: %d >= %d' % (
-          image_index, max_num_images))
-      image_file = os.path.join(folder, image)
-      try:
-        image_data = (ndimage.imread(image_file).astype(float) -
-                      pixel_depth / 2) / pixel_depth
-        if image_data.shape != (image_size, image_size):
-          raise Exception('Unexpected image shape: %s' % str(image_data.shape))
-        dataset[image_index, :, :] = image_data
-        labels[image_index] = label_index
-        image_index += 1
-      except IOError as e:
-        print('Could not read:', image_file, ':', e, '- it\'s ok, skipping.')
-    label_index += 1
+  print(folder)
+  for image in os.listdir(folder):
+    image_file = os.path.join(folder, image)
+    try:
+      image_data = (ndimage.imread(image_file).astype(float) - 
+                    pixel_depth / 2) / pixel_depth
+      if image_data.shape != (image_size, image_size):
+        raise Exception('Unexpected image shape: %s' % str(image_data.shape))
+      dataset[image_index, :, :] = image_data
+      image_index += 1
+    except IOError as e:
+      print('Could not read:', image_file, ':', e, '- it\'s ok, skipping.')
+    
   num_images = image_index
   dataset = dataset[0:num_images, :, :]
-  labels = labels[0:num_images]
   if num_images < min_num_images:
-    raise Exception('Many fewer images than expected: %d < %d' % (
-        num_images, min_num_images))
+    raise Exception('Many fewer images than expected: %d < %d' %
+                    (num_images, min_num_images))
+    
   print('Full dataset tensor:', dataset.shape)
   print('Mean:', np.mean(dataset))
   print('Standard deviation:', np.std(dataset))
-  print('Labels:', labels.shape)
-  return dataset, labels
+  return dataset
+        
+def maybe_pickle(data_folders, min_num_images_per_class, force=False):
+  dataset_names = []
+  for folder in data_folders:
+    set_filename = folder + '.pickle'
+    dataset_names.append(set_filename)
+    if os.path.exists(set_filename) and not force:
+      # You may override by setting force=True.
+      print('%s already present - Skipping pickling.' % set_filename)
+    else:
+      print('Pickling %s.' % set_filename)
+      dataset = load_letter(folder, min_num_images_per_class)
+      try:
+        with open(set_filename, 'wb') as f:
+          pickle.dump(dataset, f, pickle.HIGHEST_PROTOCOL)
+      except Exception as e:
+        print('Unable to save data to', set_filename, ':', e)
+  
+  return dataset_names
 
-train_dataset, train_labels = load(train_folders, 450000, 550000)
-test_dataset, test_labels = load(test_folders, 18000, 20000)
+train_datasets = maybe_pickle(train_folders, 45000)
+test_datasets = maybe_pickle(test_folders, 1800)
 
 """
 Problem 2
@@ -139,6 +162,79 @@ i = random.randint(0,len(train_dataset)-1)
 print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
 plt.imshow(train_dataset[i])
 plt.show()
+
+"""
+Problem 3
+
+Another check: we expect the data to be balanced across classes. Verify that.
+"""
+
+print("Number of items in each class.")
+print(np.unique(train_labels))
+# values, counts = np.unique(train_labels, return_counts=True)
+# for (v, c) in zip(values, counts):
+    # print('There are {} labelled {}.'.format(c, v))
+
+"""
+Merge and prune the training data as needed. Depending on your computer setup, you might not be able to fit it all in memory, and you can tune train_size as needed. The labels will be stored into a separate array of integers 0 through 9.
+
+Also create a validation dataset for hyperparameter tuning.
+"""
+
+def make_arrays(nb_rows, img_size):
+  if nb_rows:
+    dataset = np.ndarray((nb_rows, img_size, img_size), dtype=np.float32)
+    labels = np.ndarray(nb_rows, dtype=np.int32)
+  else:
+    dataset, labels = None, None
+  return dataset, labels
+
+def merge_datasets(pickle_files, train_size, valid_size=0):
+  num_classes = len(pickle_files)
+  valid_dataset, valid_labels = make_arrays(valid_size, image_size)
+  train_dataset, train_labels = make_arrays(train_size, image_size)
+  vsize_per_class = valid_size // num_classes
+  tsize_per_class = train_size // num_classes
+    
+  start_v, start_t = 0, 0
+  end_v, end_t = vsize_per_class, tsize_per_class
+  end_l = vsize_per_class+tsize_per_class
+  for label, pickle_file in enumerate(pickle_files):       
+    try:
+      with open(pickle_file, 'rb') as f:
+        letter_set = pickle.load(f)
+        # let's shuffle the letters to have random validation and training set
+        np.random.shuffle(letter_set)
+        if valid_dataset is not None:
+          valid_letter = letter_set[:vsize_per_class, :, :]
+          valid_dataset[start_v:end_v, :, :] = valid_letter
+          valid_labels[start_v:end_v] = label
+          start_v += vsize_per_class
+          end_v += vsize_per_class
+                    
+        train_letter = letter_set[vsize_per_class:end_l, :, :]
+        train_dataset[start_t:end_t, :, :] = train_letter
+        train_labels[start_t:end_t] = label
+        start_t += tsize_per_class
+        end_t += tsize_per_class
+    except Exception as e:
+      print('Unable to process data from', pickle_file, ':', e)
+      raise
+    
+  return valid_dataset, valid_labels, train_dataset, train_labels
+            
+            
+train_size = 200000
+valid_size = 10000
+test_size = 10000
+
+valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
+  train_datasets, train_size, valid_size)
+_, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
+
+print('Training:', train_dataset.shape, train_labels.shape)
+print('Validation:', valid_dataset.shape, valid_labels.shape)
+print('Testing:', test_dataset.shape, test_labels.shape)
 
 """
 Next, we'll randomize the data. It's important to have the labels well shuffled for the training and test distributions to match.
@@ -154,7 +250,7 @@ train_dataset, train_labels = randomize(train_dataset, train_labels)
 test_dataset, test_labels = randomize(test_dataset, test_labels)
 
 """
-Problem 3
+Problem 4
 
 Convince yourself that the data is still good after shuffling!
 """
@@ -164,42 +260,6 @@ i = random.randint(0,len(train_dataset)-1)
 print("displayed train entry {:d} labelled {:d}.".format(i, train_labels[i]))
 plt.imshow(train_dataset[i])
 plt.show()
-
-"""
-Problem 4
-
-Another check: we expect the data to be balanced across classes. Verify that.
-"""
-
-print("Number of items in each class.")
-print(np.unique(train_labels))
-# values, counts = np.unique(train_labels, return_counts=True)
-# for (v, c) in zip(values, counts):
-    # print('There are {} labelled {}.'.format(c, v))
-
-"""
-Prune the training data as needed. Depending on your computer setup, you might not be able to fit it all in memory, and you can tune train_size as needed.
-"""
-
-num_keep = int(floor(.5 * len(train_dataset)))
-train_dataset = train_dataset[:num_keep]
-train_labels = train_labels[:num_keep]
-test_dataset = test_dataset[:num_keep]
-test_labels = test_labels[:num_keep]
-
-"""
-Also create a validation dataset for hyperparameter tuning.
-"""
-
-train_size = 200000
-valid_size = 10000
-
-valid_dataset = train_dataset[:valid_size,:,:]
-valid_labels = train_labels[:valid_size]
-train_dataset = train_dataset[valid_size:valid_size+train_size,:,:]
-train_labels = train_labels[valid_size:valid_size+train_size]
-print('Training', train_dataset.shape, train_labels.shape)
-print('Validation', valid_dataset.shape, valid_labels.shape)
 
 """
 Finally, let's save the data for later reuse:
@@ -247,27 +307,26 @@ Train a simple model on this data using 50, 100, 1000 and 5000 training samples.
 Optional question: train an off-the-shelf model on all the data!
 """
 
-from sklearn.linear_model import LogisticRegression as LR
-lr = LR()
+lr = LogisticRegression()
 
-for num in (50, 100, 1000, 5000):
+for num in (50, 100, 1000, 5000, len(train_dataset)):
 
     train_indices = random.sample(xrange(len(train_dataset)), num)
     
     # Fit
     start = clock()
-    rf.fit(train_dataset[train_indices], train_labels[train_indices])
+    lr.fit(train_dataset[train_indices], train_labels[train_indices])
     print("Fitted in {:.0f} seconds.".format(clock() - start))
     
     # Extrapolate
-    start = clock()
-    # predict_proba = rf.predict_proba(test_dataset)
-    predict_bin = rf.predict(test_dataset)
-    print("Extrapolated in {:.0f} seconds.".format(clock() - start))
+    # start = clock()
+    # predict_proba = lr.predict_proba(test_dataset)
+    # predict_bin = lr.predict(test_dataset)
+    # print("Extrapolated in {:.0f} seconds.".format(clock() - start))
         
     # Compute ROC AUC and accuracy
     # acc = accuracy(test_labels, predict_proba)
     # auc = AUC(test_labels, predict_proba[:,1])
-    acc = accuracy(test_labels, predict_bin)
-    auc = AUC(test_labels, predict_bin[:,1])
-    print "AUC: {:.2%}. Accuracy: {:.2%}.".format(auc, acc)
+    # acc = accuracy(test_labels, predict_bin)
+    # auc = AUC(test_labels, predict_bin[:,1])
+    # print "AUC: {:.2%}. Accuracy: {:.2%}.".format(auc, acc)
