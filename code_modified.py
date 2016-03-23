@@ -142,7 +142,7 @@ with graph.as_default(), tf.device('/cpu:0'):
   # Look up embeddings for inputs.
   embed = tf.nn.embedding_lookup(embeddings, train_dataset)
   # sum every `context_window` word embedding into one
-  segment_ids = tf.constant([i / context_window for i in range(batch_size)])
+  segment_ids = tf.constant([i // context_window for i in range(batch_size)])
   
   embed = tf.segment_sum(embed, segment_ids)
   
@@ -187,12 +187,12 @@ with tf.Session(graph=graph) as session:
     # note that this is expensive (~20% slowdown if computed every 500 steps)
     if step % 50000 == 0:
       sim = similarity.eval()
-      for i in xrange(valid_size):
+      for i in range(valid_size):
         valid_word = reverse_dictionary[valid_examples[i]]
         top_k = 8 # number of nearest neighbors
         nearest = (-sim[i, :]).argsort()[1:top_k+1]
         log = 'Nearest to %s:' % valid_word
-        for k in xrange(top_k):
+        for k in range(top_k):
           close_word = reverse_dictionary[nearest[k]]
           log = '%s %s,' % (log, close_word)
         print(log)
